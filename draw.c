@@ -20,8 +20,76 @@
   Color should be set differently for each polygon.
   ====================*/
 void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb ) {
-  //  int startY = points->m[
-  int startY, midY, topY;
+  //bubble sort
+  int vertices[3] = [i, i+1, i+2];
+  int temp;
+  int not_done = 1;
+  while(not_done) {
+    //traverse and swap
+    not_done = 0;
+    for (int x = 0; x < 2; x++) {
+      if (points->m[1][vertices[x]] > points->m[1][vertices[x+1]]) {
+	//swap
+	temp = vertices[x];
+	vertices[x] = vertices[x+1];
+	vertices[x+1] = temp;
+	not_done = 1;
+      }
+    }
+  }
+
+  //our three points
+  int bot [2] = {points->m[0][vertices[0]],
+		 points->m[1][vertices[0]],
+		 points->m[2][vertices[0]]];
+  int mid [2] = {points->m[0][vertices[1]],
+		 points->m[1][vertices[1]],
+  		 points->m[2][vertices[1]]];
+  int top [2] = {points->m[0][vertices[2]],
+		 points->m[1][vertices[2]],
+		 points->m[2][vertices[2]]];
+
+  //left to right xs, that we draw to
+  int leftX = bot[0];
+  int rightX = bot[0];
+  int leftZ = bot[2];
+  int rightZ = bot[2];
+
+  //calc rates
+  double curr_dX = (mid[0]-bot[0])*1.0 / (mid[1]-bot[1]);
+  double mt_dX = (top[0]-mid[0])*1.0 / (top[1]-mid[1]);
+  double bt_dX = (top[0]-bot[0])*1.0 / (top[1]-bot[1]);
+  double curr_dZ = (mid[2]-bot[2])*1.0 / (mid[1]-bot[1]);
+  double mt_dZ = (top[2]-mid[2])*1.0 / (top[1]-mid[1]);
+  double bt_dZ = (top[2]-bot[2])*1.0 / (top[1]-bot[1]);
+
+  //traverse line by line from lowest y to highest y
+  for (int y = points->m[1][vertices[0]];
+       y < points->m[1][vertices[1]];
+       y++) {
+    drawline(leftX, y, leftZ,
+	     rightX, y, rightZ,
+	     x, zb, c);
+    //switch to different second rate
+    if (leftX == mid[0] || rightY==mid[0]) {
+      curr_dX = mt_dX;
+    }
+    if (leftZ == mid[2] || rightZ==mid[2]) {
+      curr_dZ = mt_dZ;
+    }
+    //mid point is on left side
+    if (leftX < bot[0]) {
+      leftX += curr_dx;
+      rightX += bt_dX;
+    } else {
+      leftX += bt_dX;
+      rightX += curr_dx;
+    }
+    /*      draw_line(int x0, int y0, double z0,
+               int x1, int y1, double z1,
+               screen s, zbuffer zb, color c) */
+  }
+  
 }
 
 /*======== void add_polygon() ==========
