@@ -85,9 +85,13 @@ void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb ) {
       leftX += bt_dX;
       rightX += curr_dx;
     }
-    /*      draw_line(int x0, int y0, double z0,
-               int x1, int y1, double z1,
-               screen s, zbuffer zb, color c) */
+    if (leftZ < bot[2]) {
+      leftZ += curr_dZ;
+      rightZ += bt_dZ;
+    } else {
+      leftZ += bt_dZ;
+      rightZ += curr_dZ;
+    }
   }
   
 }
