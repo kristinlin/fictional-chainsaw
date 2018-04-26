@@ -21,7 +21,8 @@
   ====================*/
 void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb ) {
   //bubble sort
-  int vertices[3] = [i, i+1, i+2];
+
+  int vertices[3] = {i, i+1, i+2};
   int temp;
   int not_done = 1;
   while(not_done) {
@@ -39,15 +40,15 @@ void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb ) {
   }
 
   //our three points
-  int bot [2] = {points->m[0][vertices[0]],
+  int bot [3] = {points->m[0][vertices[0]],
 		 points->m[1][vertices[0]],
-		 points->m[2][vertices[0]]];
-  int mid [2] = {points->m[0][vertices[1]],
+		 points->m[2][vertices[0]]};
+  int mid [3] = {points->m[0][vertices[1]],
 		 points->m[1][vertices[1]],
-  		 points->m[2][vertices[1]]];
-  int top [2] = {points->m[0][vertices[2]],
+  		 points->m[2][vertices[1]]};
+  int top [3] = {points->m[0][vertices[2]],
 		 points->m[1][vertices[2]],
-		 points->m[2][vertices[2]]];
+		 points->m[2][vertices[2]]};
 
   //left to right xs, that we draw to
   int leftX = bot[0];
@@ -63,15 +64,21 @@ void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb ) {
   double mt_dZ = (top[2]-mid[2])*1.0 / (top[1]-mid[1]);
   double bt_dZ = (top[2]-bot[2])*1.0 / (top[1]-bot[1]);
 
+  //determine color
+  color c;
+  c.red = i % 256;
+  c.blue = (i*28) % 256;
+  c.green = (i*2039) % 256;
+  
   //traverse line by line from lowest y to highest y
   for (int y = points->m[1][vertices[0]];
        y < points->m[1][vertices[1]];
        y++) {
-    drawline(leftX, y, leftZ,
+    draw_line(leftX, y, leftZ,
 	     rightX, y, rightZ,
-	     x, zb, c);
+	     s, zb, c);
     //switch to different second rate
-    if (leftX == mid[0] || rightY==mid[0]) {
+    if (leftX == mid[0] || rightZ==mid[0]) {
       curr_dX = mt_dX;
     }
     if (leftZ == mid[2] || rightZ==mid[2]) {
@@ -79,18 +86,18 @@ void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb ) {
     }
     //mid point is on left side
     if (leftX < bot[0]) {
-      leftX += curr_dx;
-      rightX += bt_dX;
+      leftX += (int)curr_dX;
+      rightX += (int)bt_dX;
     } else {
-      leftX += bt_dX;
-      rightX += curr_dx;
+      leftX += (int)bt_dX;
+      rightX += (int)curr_dX;
     }
     if (leftZ < bot[2]) {
-      leftZ += curr_dZ;
-      rightZ += bt_dZ;
+      leftZ += (int)curr_dZ;
+      rightZ += (int)bt_dZ;
     } else {
-      leftZ += bt_dZ;
-      rightZ += curr_dZ;
+      leftZ += (int)bt_dZ;
+      rightZ += (int)curr_dZ;
     }
   }
   
@@ -167,6 +174,7 @@ void draw_polygons(struct matrix *polygons, screen s, zbuffer zb, color c ) {
                  polygons->m[1][point+2],
                  polygons->m[2][point+2],
                  s, zb, c);
+      scanline_convert(polygons, point, s, zb);
     }
   }
 }
@@ -580,11 +588,11 @@ void draw_lines( struct matrix * points, screen s, zbuffer zb, color c) {
 
 
 
+//ya gots to calc the z value the same way you calced x/y
 
 void draw_line(int x0, int y0, double z0,
                int x1, int y1, double z1,
                screen s, zbuffer zb, color c) {
-
 
   int x, y, d, A, B;
   int dy_east, dy_northeast, dx_east, dx_northeast, d_east, d_northeast;
@@ -649,9 +657,15 @@ void draw_line(int x0, int y0, double z0,
     }
   }
 
+  //calc change of z; start at z0
+  int z = z0;
+  int dz = z1 - z0;
+  //to calc step, divide by the diff between loop_start and loop_end
+  dz = dz/(loop_start - loop_end);
+
   while ( loop_start < loop_end ) {
 
-    plot( s, zb, c, x, y, 0);
+    plot( s, zb, c, x, y, z);
     if ( (wide && ((A > 0 && d > 0) ||
                    (A < 0 && d < 0)))
          ||
@@ -666,7 +680,8 @@ void draw_line(int x0, int y0, double z0,
       y+= dy_east;
       d+= d_east;
     }
+    z += dz;
     loop_start++;
   } //end drawing loop
-  plot( s, zb, c, x1, y1, 0 );
+  plot( s, zb, c, x1, y1, z );
 } //end draw_line
