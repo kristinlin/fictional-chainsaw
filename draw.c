@@ -49,56 +49,65 @@ void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb ) {
   int top [3] = {points->m[0][vertices[2]],
 		 points->m[1][vertices[2]],
 		 points->m[2][vertices[2]]};
+  
+  //calc rates
+  double curr_dX = (mid[0]-bot[0]*1.0) / (mid[1]-bot[1]==0 ? 1:mid[1]-bot[1]);
+  double mt_dX = (top[0]-mid[0]*1.0) / (top[1]-mid[1]==0 ? 1:top[1]-mid[1]);
+  double bt_dX = (top[0]-bot[0]*1.0) / (top[1]-bot[1]==0 ? 1:top[1]-bot[1]);
+  double curr_dZ = (mid[2]-bot[2]*1.0) / (mid[1]-bot[1]==0 ? 1:mid[1]-bot[1]);
+  double mt_dZ = (top[2]-mid[2]*1.0) / (top[1]-mid[1]==0 ? 1:top[1]-mid[1]);
+  double bt_dZ = (top[2]-bot[2]*1.0) / (top[1]-bot[1]==0 ? 1:top[1]-bot[1]);
 
   //left to right xs, that we draw to
-  int leftX = bot[0];
-  int rightX = bot[0];
-  int leftZ = bot[2];
-  int rightZ = bot[2];
+  double leftX = bot[0];
+  double rightX = bot[0];
+  double leftZ = bot[2];
+  double rightZ = bot[2];
 
-  //calc rates
-  double curr_dX = (mid[0]-bot[0])*1.0 / (mid[1]-bot[1]);
-  double mt_dX = (top[0]-mid[0])*1.0 / (top[1]-mid[1]);
-  double bt_dX = (top[0]-bot[0])*1.0 / (top[1]-bot[1]);
-  double curr_dZ = (mid[2]-bot[2])*1.0 / (mid[1]-bot[1]);
-  double mt_dZ = (top[2]-mid[2])*1.0 / (top[1]-mid[1]);
-  double bt_dZ = (top[2]-bot[2])*1.0 / (top[1]-bot[1]);
-
+  //if the y values are the same, draw the line right away
+  if(bot[1] == mid[1]) {
+    if (mid[0] < bot[0]) {
+      leftX += curr_dX;
+      leftZ += curr_dZ;
+    } else {
+      rightX += curr_dX;
+      rightZ += curr_dZ;
+    }
+  }
+  
   //determine color
   color c;
-  c.red = i % 256;
-  c.blue = (i*28) % 256;
-  c.green = (i*2039) % 256;
+  c.red = (bot[0]*102 + mid[1]*294) % 256;
+  c.blue = (bot[1]*212 + mid[0]*213) % 256;
+  c.green = (bot[2]*320 + top[2]*309) % 256;
+
   
   //traverse line by line from lowest y to highest y
-  for (int y = points->m[1][vertices[0]];
-       y < points->m[1][vertices[1]];
-       y++) {
-    draw_line(leftX, y, leftZ,
-	     rightX, y, rightZ,
-	     s, zb, c);
-    //switch to different second rate
-    if (leftX == mid[0] || rightZ==mid[0]) {
-      curr_dX = mt_dX;
+  for (int y = bot[1]; y < top[1]; y++) {
+
+    draw_line((int)leftX, y, leftZ,
+	      (int)rightX, y, rightZ,
+	      s, zb, c);
+
+    //turning point
+    if (y == mid[1]) {
+	curr_dX = mt_dX;
+	curr_dZ = mt_dZ;
     }
-    if (leftZ == mid[2] || rightZ==mid[2]) {
-      curr_dZ = mt_dZ;
-    }
+    
     //mid point is on left side
-    if (leftX < bot[0]) {
-      leftX += (int)curr_dX;
-      rightX += (int)bt_dX;
+    if (mid[0] < bot[0]) {
+      leftX += curr_dX;
+      leftZ += curr_dZ;
+      rightX += bt_dX;
+      rightZ += bt_dZ;
     } else {
-      leftX += (int)bt_dX;
-      rightX += (int)curr_dX;
+      leftX += bt_dX;
+      leftZ += bt_dZ;
+      rightX += curr_dX;
+      rightZ += curr_dZ;
     }
-    if (leftZ < bot[2]) {
-      leftZ += (int)curr_dZ;
-      rightZ += (int)bt_dZ;
-    } else {
-      leftZ += (int)bt_dZ;
-      rightZ += (int)curr_dZ;
-    }
+
   }
   
 }
@@ -147,12 +156,13 @@ void draw_polygons(struct matrix *polygons, screen s, zbuffer zb, color c ) {
   int point;
   double *normal;
 
-  for (point=0; point < polygons->lastcol-2; point+=3) {
 
+  for (point=0; point < polygons->lastcol-2; point+=3) {
     normal = calculate_normal(polygons, point);
 
     if ( normal[2] > 0 ) {
 
+      /*
       draw_line( polygons->m[0][point],
                  polygons->m[1][point],
                  polygons->m[2][point],
@@ -173,7 +183,7 @@ void draw_polygons(struct matrix *polygons, screen s, zbuffer zb, color c ) {
                  polygons->m[0][point+2],
                  polygons->m[1][point+2],
                  polygons->m[2][point+2],
-                 s, zb, c);
+                 s, zb, c);*/
       scanline_convert(polygons, point, s, zb);
     }
   }
@@ -594,6 +604,9 @@ void draw_line(int x0, int y0, double z0,
                int x1, int y1, double z1,
                screen s, zbuffer zb, color c) {
 
+  printf("These are the points being added\n %d %d %lf %d %d %lf\n",
+	 x0, y0, z0, x1, y1, z1);
+  
   int x, y, d, A, B;
   int dy_east, dy_northeast, dx_east, dx_northeast, d_east, d_northeast;
   int loop_start, loop_end;
@@ -658,10 +671,11 @@ void draw_line(int x0, int y0, double z0,
   }
 
   //calc change of z; start at z0
-  int z = z0;
-  int dz = z1 - z0;
+  double z = z0;
+  double dz = z1 - z0;
   //to calc step, divide by the diff between loop_start and loop_end
-  dz = dz/(loop_start - loop_end);
+  dz = dz/(double)(loop_end-loop_start==0 ? 1 : loop_end-loop_start);
+  printf("THIS IS dz : %lf\n", dz);
 
   while ( loop_start < loop_end ) {
 
@@ -683,5 +697,5 @@ void draw_line(int x0, int y0, double z0,
     z += dz;
     loop_start++;
   } //end drawing loop
-  plot( s, zb, c, x1, y1, z );
+  plot( s, zb, c, x1, y1, z1 );
 } //end draw_line

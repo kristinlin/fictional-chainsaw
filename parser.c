@@ -86,6 +86,9 @@ void parse_file ( char * filename,
   clear_zbuffer(zb);
   struct stack * csystems = new_stack();
 
+
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  printf("WHAT IS GOING ON\n");
   color c;
   c.red = 0;
   c.green = 0;
